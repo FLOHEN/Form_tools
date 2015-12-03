@@ -1,0 +1,100 @@
+REPORT  zfh_check_transport.
+
+TABLES: e071.
+
+FIELD-SYMBOLS: <gf_object>      TYPE e071.
+FIELD-SYMBOLS: <gf_object_sam>  TYPE e071.
+
+DATA: gt_objects_sam            TYPE TABLE OF e071,
+      gs_object_sam             TYPE e071,
+      gt_objects                TYPE TABLE OF e071,
+      gt_transports             TYPE SORTED TABLE OF trkorr
+                                WITH NON-UNIQUE KEY table_line,
+      gs_transport              TYPE trkorr,
+      gs_transport_string       TYPE string,
+      gv_dummy                  TYPE string,
+      gv_stringtab              TYPE TABLE OF string,
+      gv_obj_name               TYPE string,
+      gv_trkorr                 TYPE string,
+      gv_objfunc                TYPE string.
+
+
+SELECTION-SCREEN BEGIN OF BLOCK zlb_sel.
+
+SELECT-OPTIONS: pv_tra FOR e071-trkorr OBLIGATORY,
+                pv_sam FOR e071-trkorr OBLIGATORY NO INTERVALS NO-EXTENSION.
+
+SELECTION-SCREEN END OF BLOCK zlb_sel.
+
+
+START-OF-SELECTION.
+
+* Liest zuerst alle Objekte der einzelnen Transporte
+  SELECT trkorr pgmid object obj_name
+    FROM e071
+    INTO CORRESPONDING FIELDS OF TABLE gt_objects
+    WHERE trkorr IN pv_tra.
+
+* Liest danach Objekte des Sammlers
+  SELECT trkorr pgmid object obj_name
+    FROM e071
+    INTO CORRESPONDING FIELDS OF TABLE gt_objects_sam
+    WHERE trkorr = pv_sam-low.
+
+* Ermittelt alle Transportaufträge, die im Sammler stehen
+  LOOP AT gt_objects_sam ASSIGNING <gf_object_sam>
+    WHERE pgmid = 'CORR'.
+    SPLIT <gf_object_sam>-obj_name AT space INTO: gs_transport gv_dummy, TABLE gv_stringtab.
+    INSERT gs_transport INTO TABLE gt_transports.
+  ENDLOOP.
+
+  SORT gt_objects ASCENDING BY trkorr.
+
+* Loop über die Objekte aller selektierten Transportaufträge
+  LOOP AT gt_objects ASSIGNING <gf_object>.
+
+*   Bei jedem neuen Auftrag wird geprüft ob dieser überhaupt im Sammler steht
+    AT NEW trkorr.
+      READ TABLE gt_transports INTO gs_transport
+        WITH TABLE KEY table_line = <gf_object>-trkorr.
+
+*     ... wenn nicht Ausgabe dass TA nicht im Sammler
+      IF sy-subrc NE 0.
+
+        gs_transport_string = <gf_object>-trkorr.
+        WRITE: / 'Transport ', gs_transport_string,
+                 ' ist nicht im Sammler vorhanden'.
+        WRITE /.
+
+*       Löscht alle Objekte des nicht im Sammler stehenden TA's
+        DELETE gt_objects WHERE trkorr = <gf_object>-trkorr.
+        CONTINUE.
+
+      ENDIF.
+
+    ENDAT.
+
+*   Wenn TA im Sammler vorhanden (siehe vorherige Prüfung):
+*   Prüft ob Objekt aus dem TA auch im Sammler steht
+    READ TABLE gt_objects_sam ASSIGNING <gf_object_sam>
+      WITH KEY pgmid = <gf_object>-pgmid
+               object = <gf_object>-object
+               obj_name = <gf_object>-obj_name.
+
+*   Wenn Objekt aus TA nicht im Sammler steht...
+    IF sy-subrc NE 0.
+
+*     Ausgabe Objekt nicht im Sammler
+      gv_obj_name = <gf_object>-obj_name.
+      gv_trkorr   = <gf_object>-trkorr.
+      gv_objfunc  = <gf_object>-objfunc.
+
+      WRITE: / 'Objekt ', gv_obj_name,
+               ' aus Transport ', gv_trkorr ,
+               ' mit Objektfunktion', gv_objfunc,
+               ' steht nicht im Sammler '.
+      WRITE /.
+
+    ENDIF.
+
+  ENDLOOP.
