@@ -1,0 +1,167 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFH_DOWNLOAD_SPOOL_IN_PDF
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT  ZFH_DOWNLOAD_SPOOL_IN_PDF.
+
+
+
+DATA: it_pdf TYPE TABLE OF TLINE WITH HEADER LINE,
+      gv_string TYPE string.
+
+
+PARAMETERS: p_spool LIKE TSP01-RQIDENT,
+            p_file LIKE RLGRAP-FILENAME.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  CALL FUNCTION 'KD_GET_FILENAME_ON_F4'
+    EXPORTING
+*     PROGRAM_NAME        = SYST-REPID
+*     DYNPRO_NUMBER       = SYST-DYNNR
+*     FIELD_NAME          = ’ ’
+      STATIC              = 'X'
+      MASK                = ',*.txt,*.*'
+    CHANGING
+      FILE_NAME           = p_file
+    EXCEPTIONS
+      MASK_TOO_LONG       = 1
+      OTHERS              = 2
+            .
+  IF SY-SUBRC <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+START-OF-SELECTION.
+
+CALL FUNCTION 'CONVERT_OTFSPOOLJOB_2_PDF'
+  EXPORTING
+    src_spoolid                    = p_spool
+*   NO_DIALOG                      =
+*   DST_DEVICE                     =
+*   PDF_DESTINATION                =
+*   NO_BACKGROUND                  =
+* IMPORTING
+*   PDF_BYTECOUNT                  =
+*   PDF_SPOOLID                    =
+*   OTF_PAGECOUNT                  =
+*   BTC_JOBNAME                    =
+*   BTC_JOBCOUNT                   =
+*   BIN_FILE                       =
+ TABLES
+    PDF                            = it_pdf
+* EXCEPTIONS
+*   ERR_NO_OTF_SPOOLJOB            = 1
+*   ERR_NO_SPOOLJOB                = 2
+*   ERR_NO_PERMISSION              = 3
+*   ERR_CONV_NOT_POSSIBLE          = 4
+*   ERR_BAD_DSTDEVICE              = 5
+*   USER_CANCELLED                 = 6
+*   ERR_SPOOLERROR                 = 7
+*   ERR_TEMSEERROR                 = 8
+*   ERR_BTCJOB_OPEN_FAILED         = 9
+*   ERR_BTCJOB_SUBMIT_FAILED       = 10
+*   ERR_BTCJOB_CLOSE_FAILED        = 11
+*   OTHERS                         = 12
+          .
+*IF sy-subrc <> 0.
+** MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+**         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+*ENDIF.
+
+*
+*  CALL FUNCTION 'CONVERT_ABAPSPOOLJOB_2_PDF'
+*    EXPORTING
+*      SRC_SPOOLID                    = p_spool
+**     NO_DIALOG                      =
+**     DST_DEVICE                     =
+**     PDF_DESTINATION                =
+**   IMPORTING
+**     PDF_BYTECOUNT                  =
+**     PDF_SPOOLID                    =
+**     LIST_PAGECOUNT                 =
+**     BTC_JOBNAME                    =
+**     BTC_JOBCOUNT                   =
+*   TABLES
+*     PDF                            = it_pdf
+*   EXCEPTIONS
+*     ERR_NO_ABAP_SPOOLJOB           = 1
+*     ERR_NO_SPOOLJOB                = 2
+*     ERR_NO_PERMISSION              = 3
+*     ERR_CONV_NOT_POSSIBLE          = 4
+*     ERR_BAD_DESTDEVICE             = 5
+*     USER_CANCELLED                 = 6
+*     ERR_SPOOLERROR                 = 7
+*     ERR_TEMSEERROR                 = 8
+*     ERR_BTCJOB_OPEN_FAILED         = 9
+*     ERR_BTCJOB_SUBMIT_FAILED       = 10
+*     ERR_BTCJOB_CLOSE_FAILED        = 11
+*     OTHERS                         = 12
+*            .
+  IF SY-SUBRC <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ELSE.
+    gv_string = p_file.
+    CALL FUNCTION 'GUI_DOWNLOAD'
+      EXPORTING
+*       BIN_FILESIZE                    =
+        FILENAME                        = gv_string
+        FILETYPE                        = 'BIN'
+*       APPEND                          = ’ ’
+*       WRITE_FIELD_SEPARATOR           = ’ ’
+*       HEADER                          = ’00’
+*       TRUNC_TRAILING_BLANKS           = ’ ’
+*       WRITE_LF                        = ’X’
+*       COL_SELECT                      = ’ ’
+*       COL_SELECT_MASK                 = ’ ’
+*       DAT_MODE                        = ’ ’
+*       CONFIRM_OVERWRITE               = ’ ’
+*       NO_AUTH_CHECK                   = ’ ’
+*       CODEPAGE                        = ’ ’
+*       IGNORE_CERR                     = ABAP_TRUE
+*       REPLACEMENT                     = ’#’
+*       WRITE_BOM                       = ’ ’
+*       TRUNC_TRAILING_BLANKS_EOL       = ’X’
+*       WK1_N_FORMAT                    = ’ ’
+*       WK1_N_SIZE                      = ’ ’
+*       WK1_T_FORMAT                    = ’ ’
+*       WK1_T_SIZE                      = ’ ’
+*     IMPORTING
+*       FILELENGTH                      =
+      TABLES
+        DATA_TAB                        = it_pdf
+*       FIELDNAMES                      =
+     EXCEPTIONS
+       FILE_WRITE_ERROR                = 1
+       NO_BATCH                        = 2
+       GUI_REFUSE_FILETRANSFER         = 3
+       INVALID_TYPE                    = 4
+       NO_AUTHORITY                    = 5
+       UNKNOWN_ERROR                   = 6
+       HEADER_NOT_ALLOWED              = 7
+       SEPARATOR_NOT_ALLOWED           = 8
+       FILESIZE_NOT_ALLOWED            = 9
+       HEADER_TOO_LONG                 = 10
+       DP_ERROR_CREATE                 = 11
+       DP_ERROR_SEND                   = 12
+       DP_ERROR_WRITE                  = 13
+       UNKNOWN_DP_ERROR                = 14
+       ACCESS_DENIED                   = 15
+       DP_OUT_OF_MEMORY                = 16
+       DISK_FULL                       = 17
+       DP_TIMEOUT                      = 18
+       FILE_NOT_FOUND                  = 19
+       DATAPROVIDER_EXCEPTION          = 20
+       CONTROL_FLUSH_ERROR             = 21
+       OTHERS                          = 22
+              .
+    IF SY-SUBRC <> 0.
+* MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+*         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    ENDIF.
+  ENDIF.

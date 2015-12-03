@@ -1,0 +1,795 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFH_CHECK_TTDTG_TO_FORM
+*&
+*&---------------------------------------------------------------------*
+*Textelemente
+*001  Mögliche Formulare, keine Garantie auf Vollständigkeit!!
+*002  YMMST_PURC_ORD2
+*003  YMMST_PURC_ORDER
+*004  YSD_AUFTRAG_GZA
+*005  YSD_AUFTRAG_OBJ
+*006  YSDCH_AUFTRAG
+*007  YSDCH_MOUNTING_P
+*008  YSDCH_RECHNUNG
+*009  YSDST_AUFTRAG
+*010  YSDST_DEL_NOTE_1
+*011  YSDST_DEL_NOTE_3
+*012  YSDST_DEL_NOTE_4
+*013  YSDST_DEL_NOTE_5
+*050  Formularsuche
+*051  Information
+*052  Langtextsuche
+*053  Wenn Langtextsuche aktiv, werden andere Eingaben ignoriert
+*054  Übergreifende Einstellungen
+*055  Langtextvergleichs (Suchbegriff wird ignoriert)
+*100  Mindestens ein Suchkriterium füllen!
+*101  Bitte füllen Sie alle Parameter für eine Langtextsuche!
+*102  Die Sprache für die Formularsuche ist ein Muss-Kriterium!
+*103  Bitte füllen Sie alle Parameter für einen Langtextvergleich!
+*200  Formulare identifizieren
+*201  Suchbegriff und Elemente identifizieren
+*202  Ergebnisstabelle aufbereiten
+*203  Ergebnisse aufzeigen
+*500  !!!Es wird der gesamte Text angezeigt!!!
+**********************************************************************
+*Selektionstexte
+*PA_ALL	Kompletten Text ausgeben?
+*PA_BEG	Übersetzungsbegriff
+*PA_COM	Kommentarzeilen einschließen?
+*PA_DTL	Detailstellen anzeigen?
+*PA_FOR	Absatzformat
+*PA_FSPR  Sprachenschlüssel
+*PA_ID  ID
+*PA_ID2	ID_2
+*PA_LBG	Suchbegriff (Langtext)
+*PA_NAM	Name
+*PA_NAM2  Textname_2
+*PA_OBJ	Objekt
+*PA_OBJ2  Textobjekt_2
+*PA_SPR	Sprache
+*PA_SPR2  Sprache_2
+*PA_SWI	Langtextsuche aktivieren
+*PA_SWI2  Langtextvergleich aktivieren
+*SO_FORM  Formularname(n)
+*&---------------------------------------------------------------------*
+
+REPORT  zfh_check_ttdtg_to_form.
+
+TYPES: BEGIN OF ty_find,
+        form TYPE stxh-tdname,
+        tabix TYPE sy-tabix,
+        tdformat TYPE tline-tdformat,
+        tdline TYPE tline-tdline,
+        typ TYPE tline-tdline,
+        element TYPE tline-tdline,
+       END OF ty_find.
+
+
+DATA: ysdch_gt_forms TYPE TABLE OF stxh,
+      ysdch_gs_forms LIKE LINE OF ysdch_gt_forms.
+
+DATA: gv_formname TYPE stxh-tdname.
+DATA: gv_rtname TYPE thead-tdname.
+
+DATA: gv_element TYPE tline-tdline.
+DATA: gv_fenster TYPE tline-tdline.
+
+
+DATA: ysdch_gt_lines TYPE TABLE OF tline,                     "Interne Tabelle für Grunddatentext im Positionsandruck
+      ysdch_gs_line LIKE LINE OF ysdch_gt_lines.
+
+DATA: ysdch_gs_result TYPE ty_find,                     "Interne Tabelle für Grunddatentext im Positionsandruck
+      ysdch_gt_result LIKE TABLE OF ysdch_gs_result.
+
+DATA: ysdch_gs_result2 TYPE ty_find,                     "Interne Tabelle für Grunddatentext im Positionsandruck
+      ysdch_gt_result2 LIKE TABLE OF ysdch_gs_result.
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b001 WITH FRAME TITLE text-050.
+PARAMETERS: pa_beg TYPE char40." OBLIGATORY.
+PARAMETERS: pa_for TYPE tline-tdformat.
+PARAMETERS: pa_fspr TYPE thead-tdspras DEFAULT 'D'.
+SELECT-OPTIONS: so_form FOR gv_formname NO INTERVALS.
+
+SELECTION-SCREEN SKIP 2.
+
+PARAMETERS: pa_dtl TYPE xfeld.
+
+
+SELECTION-SCREEN SKIP 2.
+
+SELECTION-SCREEN END OF BLOCK b001.
+
+SELECTION-SCREEN BEGIN OF BLOCK b003 WITH FRAME TITLE text-052.
+PARAMETERS: pa_swi TYPE xfeld.
+SELECTION-SCREEN COMMENT /1(60) text-053.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: pa_lbg TYPE char40." OBLIGATORY.
+PARAMETERS: pa_all TYPE xfeld.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: pa_id TYPE thead-tdid.
+PARAMETERS: pa_spr TYPE thead-tdspras.
+PARAMETERS: pa_nam TYPE thead-tdname.
+PARAMETERS: pa_obj TYPE thead-tdobject.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: pa_swi2 TYPE xfeld.
+SELECTION-SCREEN COMMENT /1(60) text-055.
+PARAMETERS: pa_id2 TYPE thead-tdid.
+PARAMETERS: pa_spr2 TYPE thead-tdspras.
+PARAMETERS: pa_nam2 TYPE thead-tdname.
+PARAMETERS: pa_obj2 TYPE thead-tdobject.
+SELECTION-SCREEN END OF BLOCK b003.
+
+SELECTION-SCREEN BEGIN OF BLOCK b004 WITH FRAME TITLE text-054.
+PARAMETERS: pa_com TYPE xfeld.
+SELECTION-SCREEN END OF BLOCK b004.
+
+SELECTION-SCREEN BEGIN OF BLOCK b002 WITH FRAME TITLE text-051.
+SELECTION-SCREEN COMMENT /1(60) text-001.
+SELECTION-SCREEN COMMENT /1(60) text-002.
+SELECTION-SCREEN COMMENT /1(60) text-003.
+SELECTION-SCREEN COMMENT /1(60) text-004.
+SELECTION-SCREEN COMMENT /1(60) text-005.
+SELECTION-SCREEN COMMENT /1(60) text-006.
+SELECTION-SCREEN COMMENT /1(60) text-007.
+SELECTION-SCREEN COMMENT /1(60) text-008.
+SELECTION-SCREEN COMMENT /1(60) text-009.
+SELECTION-SCREEN COMMENT /1(60) text-010.
+SELECTION-SCREEN COMMENT /1(60) text-011.
+SELECTION-SCREEN COMMENT /1(60) text-012.
+SELECTION-SCREEN COMMENT /1(60) text-013.
+
+
+SELECTION-SCREEN END OF BLOCK b002.
+
+INITIALIZATION.
+
+
+AT SELECTION-SCREEN.
+  IF pa_swi2 IS NOT INITIAL.
+
+    IF pa_id IS INITIAL OR pa_spr IS INITIAL OR pa_nam IS INITIAL OR pa_obj IS INITIAL.
+      MESSAGE text-101 TYPE 'E'.
+    ELSEIF pa_id2 IS INITIAL OR pa_spr2 IS INITIAL OR pa_nam2 IS INITIAL OR pa_obj2 IS INITIAL.
+      MESSAGE text-103 TYPE 'E'.
+    ENDIF.
+
+  ELSE.
+    CASE pa_swi.
+      WHEN ' '.
+        "Coding
+        IF pa_beg IS INITIAL AND pa_for IS INITIAL.
+          MESSAGE text-100 TYPE 'E'.
+        ENDIF.
+        IF pa_fspr IS INITIAL.
+          MESSAGE text-102 TYPE 'E'.
+        ENDIF.
+      WHEN 'X'.
+        "Coding
+        IF pa_id IS INITIAL OR pa_spr IS INITIAL OR pa_nam IS INITIAL OR pa_obj IS INITIAL.
+          MESSAGE text-101 TYPE 'E'.
+        ENDIF.
+    ENDCASE.
+  ENDIF.
+
+
+
+START-OF-SELECTION.
+
+
+  CLEAR: ysdch_gt_forms,
+         ysdch_gs_result,
+         ysdch_gs_result2.
+
+  IF pa_swi2 IS NOT INITIAL.
+    PERFORM show_longtextes_on_screen.
+  ELSE.
+    IF pa_swi IS INITIAL.
+      PERFORM select_formulare.     "suche nach Formularen + Ergebnisse
+      PERFORM show_results.         "Ausgabe der Ergebnisse für Formulare
+    ELSE.
+      IF pa_all NE 'X'.
+        PERFORM search_txtid.
+        PERFORM show_result_for_longtext.
+      ELSE.
+        PERFORM show_all_txtid.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+
+
+*&---------------------------------------------------------------------*
+*&      Form  YSDCH_OUTPUT_RESULT2
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM ysdch_output_result2 .
+
+
+  WRITE: / 'Ergebnis der Suche nach Absatzformaten!' COLOR COL_TOTAL.
+  WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+  CLEAR: gv_rtname.
+  LOOP AT ysdch_gt_result2 INTO ysdch_gs_result2.
+
+    IF gv_rtname IS INITIAL.
+      gv_rtname = ysdch_gs_result2-form.
+      WRITE: / 'Absatzformat kommt in folgenden Formularen vor' COLOR COL_TOTAL.
+      WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+      WRITE: / 'Formular: ', ysdch_gs_result2-form. ", 'Tabix: ', ysdch_gs_result-tabix .
+    ELSE.
+      IF gv_rtname <> ysdch_gs_result2-form.
+        WRITE: / 'Formular: ', ysdch_gs_result2-form. ", 'Tabix: ', ysdch_gs_result-tabix .
+        gv_rtname = ysdch_gs_result2-form.
+      ENDIF.
+    ENDIF. "gv_rtname IS INITIAL.
+
+  ENDLOOP. "ysdch_gt_result INTO ysdch_gs_result.
+
+  WRITE: /.
+  WRITE: /.
+
+  IF pa_dtl EQ 'X'.
+
+    CLEAR: gv_rtname.
+    LOOP AT ysdch_gt_result2 INTO ysdch_gs_result2.
+      IF gv_rtname IS INITIAL.
+        gv_rtname = ysdch_gs_result2-form.
+        WRITE: / 'Detailstellen in den Formularen' COLOR COL_TOTAL.
+        WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+        WRITE: / 'Formular: ' COLOR COL_TOTAL, ysdch_gs_result2-form COLOR COL_TOTAL. ", 'Tabix: ', ysdch_gs_result-tabix .
+        WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+      ELSE.
+        IF gv_rtname <> ysdch_gs_result-form.
+          WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+          WRITE: / 'Formular: ' COLOR COL_TOTAL, ysdch_gs_result2-form COLOR COL_TOTAL. ", 'Tabix: ', ysdch_gs_result-tabix .
+          WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+          gv_rtname = ysdch_gs_result2-form.
+        ENDIF. "gv_rtname <> ysdch_gs_result-form.
+      ENDIF. "gv_rtname IS INITIAL.
+
+      WRITE: / ' In : ' COLOR COL_NORMAL,
+                ysdch_gs_result2-typ(20) COLOR COL_GROUP ,
+                ' / ' COLOR COL_GROUP,
+                ysdch_gs_result2-element(40) COLOR COL_GROUP.
+      WRITE: / ' Format: ' COLOR COL_NORMAL , ysdch_gs_result2-tdformat,
+               ' Inhalt: ' COLOR COL_NORMAL , ysdch_gs_result2-tdline.
+    ENDLOOP. "ysdch_gt_result2 INTO ysdch_gs_result.
+  ELSE.
+
+
+    DELETE ADJACENT DUPLICATES FROM ysdch_gt_result2 COMPARING form
+                                                              tdformat
+                                                              typ
+                                                              element.
+
+    CLEAR: gv_rtname.
+    LOOP AT ysdch_gt_result2 INTO ysdch_gs_result2.
+      IF gv_rtname IS INITIAL.
+        gv_rtname = ysdch_gs_result2-form.
+        WRITE: / 'Detailstellen in den Formularen' COLOR COL_TOTAL.
+        WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+        WRITE: / 'Formular: ' COLOR COL_TOTAL, ysdch_gs_result2-form COLOR COL_TOTAL. ", 'Tabix: ', ysdch_gs_result-tabix .
+        WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+      ELSE.
+        IF gv_rtname <> ysdch_gs_result-form.
+          WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+          WRITE: / 'Formular: ' COLOR COL_TOTAL, ysdch_gs_result2-form COLOR COL_TOTAL. ", 'Tabix: ', ysdch_gs_result-tabix .
+          WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+          gv_rtname = ysdch_gs_result2-form.
+        ENDIF. "gv_rtname <> ysdch_gs_result-form.
+      ENDIF. "gv_rtname IS INITIAL.
+
+
+      WRITE: / ' In : ' COLOR COL_NORMAL,
+                ysdch_gs_result2-typ(20) COLOR COL_GROUP ,
+                ' / ' COLOR COL_GROUP,
+                ysdch_gs_result2-element(40) COLOR COL_GROUP.
+    ENDLOOP. "ysdch_gt_result2 INTO ysdch_gs_result.
+
+
+
+
+  ENDIF. "pa_dtl EQ 'X'.
+
+
+ENDFORM.                    " YSDCH_OUTPUT_RESULT2
+*&---------------------------------------------------------------------*
+*&      Form  SELECT_FORMULARE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM select_formulare .
+
+  DATA: lv_langu TYPE thead-tdspras VALUE 'D'.
+
+  CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+    EXPORTING
+      percentage = 5
+      text       = text-200.
+*WAIT up to 2 SECONDS.
+
+  SELECT tdname FROM stxh INTO CORRESPONDING FIELDS OF TABLE ysdch_gt_forms WHERE tdobject = 'FORM'
+                                                                             AND tdid = 'DEF'
+                                                                             AND tdname IN so_form.
+
+  SORT ysdch_gt_forms BY tdname ASCENDING.
+  DELETE ADJACENT DUPLICATES FROM ysdch_gt_forms.
+
+
+  IF ysdch_gt_forms IS NOT INITIAL.
+
+    IF pa_fspr IS NOT INITIAL.
+      lv_langu = pa_fspr.
+    ENDIF.
+
+    CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+      EXPORTING
+        percentage = 30
+        text       = text-201.
+*WAIT up to 2 SECONDS.
+
+    LOOP AT ysdch_gt_forms INTO ysdch_gs_forms.
+
+      CLEAR: ysdch_gt_lines,
+             gv_rtname.
+
+      gv_rtname = ysdch_gs_forms-tdname.
+
+      CALL FUNCTION 'READ_TEXT'
+        EXPORTING
+*   CLIENT                        = SY-MANDT
+          id                            = 'TXT'
+          language                      = lv_langu
+          name                          = gv_rtname
+          object                        = 'FORM'
+*   ARCHIVE_HANDLE                = 0
+*   LOCAL_CAT                     = ' '
+* IMPORTING
+*   HEADER                        =
+        TABLES
+          lines                         = ysdch_gt_lines
+       EXCEPTIONS
+         id                            = 1
+         language                      = 2
+         name                          = 3
+         not_found                     = 4
+         object                        = 5
+         reference_check               = 6
+         wrong_access_to_archive       = 7
+         error_message                 = 9
+         OTHERS                        = 8
+                .
+
+      LOOP AT ysdch_gt_lines INTO ysdch_gs_line.
+
+        IF ysdch_gs_line-tdformat EQ '/W' OR ysdch_gs_line-tdformat EQ '/E'.
+          IF ysdch_gs_line-tdformat EQ '/W'.
+            ysdch_gs_result-typ = 'FENSTER'.
+            ysdch_gs_result2-typ = 'FENSTER'.
+          ELSE.
+            ysdch_gs_result-typ = 'ELEMENT'.
+            ysdch_gs_result2-typ = 'ELEMENT'.
+          ENDIF. "ysdch_gs_line-tdformat EQ '/W'.
+          ysdch_gs_result-element = ysdch_gs_line-tdline.
+          ysdch_gs_result2-element = ysdch_gs_line-tdline.
+        ENDIF. "ysdch_gs_line-tdformat EQ '/W' OR ysdch_gs_line-tdformat EQ '/E'.
+
+*      write: / ysdch_gs_line-TDFORMAT , 'Text: ' , ysdch_gs_line-tdline.
+        IF pa_com IS INITIAL.
+          IF ysdch_gs_line-tdline CS pa_beg AND pa_beg IS NOT INITIAL AND ysdch_gs_line-tdformat <> '/*'.
+            ysdch_gs_result-form = gv_rtname.
+            ysdch_gs_result-tdformat = ysdch_gs_line-tdformat.
+            ysdch_gs_result-tdline = ysdch_gs_line-tdline.
+            ysdch_gs_result-tabix = sy-tabix.
+            APPEND ysdch_gs_result TO ysdch_gt_result.
+          ENDIF. "ysdch_gs_line-tdline CS pa_beg AND pa_beg IS NOT INITIAL AND ysdch_gs_line-tdformat <> '/*'.
+        ELSE.
+          IF ysdch_gs_line-tdline CS pa_beg AND pa_beg IS NOT INITIAL.
+            ysdch_gs_result-form = gv_rtname.
+            ysdch_gs_result-tdformat = ysdch_gs_line-tdformat.
+            ysdch_gs_result-tdline = ysdch_gs_line-tdline.
+            ysdch_gs_result-tabix = sy-tabix.
+            APPEND ysdch_gs_result TO ysdch_gt_result.
+          ENDIF. "ysdch_gs_line-tdline CS pa_beg.
+
+        ENDIF. "pa_com IS INITIAL.
+        IF ysdch_gs_line-tdformat CS pa_for AND pa_for IS NOT INITIAL.
+          ysdch_gs_result2-form = gv_rtname.
+          ysdch_gs_result2-tdformat = ysdch_gs_line-tdformat.
+          ysdch_gs_result2-tdline = ysdch_gs_line-tdline.
+          ysdch_gs_result2-tabix = sy-tabix.
+          APPEND ysdch_gs_result2 TO ysdch_gt_result2.
+        ENDIF. "ysdch_gs_line-tdline CS pa_beg.
+
+      ENDLOOP. "ysdch_gt_lines INTO ysdch_gs_line.
+
+    ENDLOOP. "ysdch_gt_forms into ysdch_gs_forms.
+  ELSE.
+
+    WRITE: / 'Keine Forms gefunden! ' .
+  ENDIF. "ysdch_gt_forms is not initial.
+ENDFORM.                    " SELECT_FORMULARE
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_RESULTS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM show_results .
+
+  IF ysdch_gt_result IS INITIAL AND ysdch_gt_result2 IS INITIAL.
+
+    WRITE: / 'Keine Forms gefunden! ' .
+
+  ELSE.
+
+    CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+      EXPORTING
+        percentage = 80
+        text       = text-202.
+*WAIT up to 2 SECONDS.
+
+    IF ysdch_gt_result IS NOT INITIAL.
+
+      CLEAR: gv_rtname.
+      LOOP AT ysdch_gt_result INTO ysdch_gs_result.
+
+        IF gv_rtname IS INITIAL.
+          gv_rtname = ysdch_gs_result-form.
+          WRITE: / 'Übersetzungsbegriff kommt in folgenden Formularen vor' COLOR COL_TOTAL.
+          WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+          WRITE: / 'Formular: ', ysdch_gs_result-form. ", 'Tabix: ', ysdch_gs_result-tabix .
+        ELSE.
+          IF gv_rtname <> ysdch_gs_result-form.
+            WRITE: / 'Formular: ', ysdch_gs_result-form. ", 'Tabix: ', ysdch_gs_result-tabix .
+            gv_rtname = ysdch_gs_result-form.
+          ENDIF.
+        ENDIF. "gv_rtname IS INITIAL.
+
+      ENDLOOP. "ysdch_gt_result INTO ysdch_gs_result.
+
+      WRITE: /.
+      WRITE: /.
+
+      IF pa_dtl EQ 'X'.
+
+        CLEAR: gv_rtname.
+        LOOP AT ysdch_gt_result INTO ysdch_gs_result.
+          IF gv_rtname IS INITIAL.
+            gv_rtname = ysdch_gs_result-form.
+            WRITE: / 'Detailstellen in den Formularen' COLOR COL_TOTAL.
+            WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+            WRITE: / 'Formular: ' COLOR COL_TOTAL, ysdch_gs_result-form COLOR COL_TOTAL. ", 'Tabix: ', ysdch_gs_result-tabix .
+            WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+          ELSE.
+            IF gv_rtname <> ysdch_gs_result-form.
+              WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+              WRITE: / 'Formular: ' COLOR COL_TOTAL, ysdch_gs_result-form COLOR COL_TOTAL. ", 'Tabix: ', ysdch_gs_result-tabix .
+              WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+              gv_rtname = ysdch_gs_result-form.
+            ENDIF. "gv_rtname <> ysdch_gs_result-form.
+          ENDIF. "gv_rtname IS INITIAL.
+
+          WRITE: / ' In : ' COLOR COL_NORMAL,
+                    ysdch_gs_result-typ(20) COLOR COL_GROUP ,
+                    ' / ' COLOR COL_GROUP,
+                    ysdch_gs_result-element(40) COLOR COL_GROUP.
+          WRITE: / ' Inhalt: ' COLOR COL_NORMAL , ysdch_gs_result-tdformat COLOR COL_POSITIVE,
+                    ysdch_gs_result-tdline.
+        ENDLOOP. "ysdch_gt_result INTO ysdch_gs_result.
+      ENDIF. "pa_dtl EQ 'X'.
+
+    ENDIF. "ysdch_gt_result is not initial.
+
+    IF ysdch_gt_result2 IS NOT INITIAL.
+      PERFORM ysdch_output_result2.
+    ENDIF.
+
+
+  ENDIF. "ysdch_gt_result is initial and ysdch_gt_result2 is initial.
+
+  CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
+    EXPORTING
+      percentage = 100
+      text       = text-203.
+
+  IF pa_beg CS 'LOL'.
+    WRITE: / '~~~~~~~~'.
+    WRITE: / ' *    * '.
+    WRITE: / '   ||   '.
+    WRITE: / '**    **'.
+    WRITE: / ' ****** '.
+    WRITE: / '  |__|  '.
+  ENDIF.
+
+ENDFORM.                    " SHOW_RESULTS
+*&---------------------------------------------------------------------*
+*&      Form  SEARCH_TXTID
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM search_txtid .
+
+  CLEAR: ysdch_gt_lines.
+
+  CALL FUNCTION 'READ_TEXT'
+    EXPORTING
+*   CLIENT                        = SY-MANDT
+      id                            = pa_id
+      language                      = pa_spr
+      name                          = pa_nam
+      object                        = pa_obj
+*   ARCHIVE_HANDLE                = 0
+*   LOCAL_CAT                     = ' '
+* IMPORTING
+*   HEADER                        =
+    TABLES
+      lines                         = ysdch_gt_lines
+   EXCEPTIONS
+     id                            = 1
+     language                      = 2
+     name                          = 3
+     not_found                     = 4
+     object                        = 5
+     reference_check               = 6
+     wrong_access_to_archive       = 7
+     error_message                 = 9
+     OTHERS                        = 8
+            .
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+  ELSE.
+    LOOP AT ysdch_gt_lines INTO ysdch_gs_line.
+      IF pa_com IS INITIAL.
+        IF ysdch_gs_line-tdline CS pa_lbg AND pa_lbg IS NOT INITIAL AND ysdch_gs_line-tdformat <> '/*'.
+          ysdch_gs_result-tdformat = ysdch_gs_line-tdformat.
+          ysdch_gs_result-tdline = ysdch_gs_line-tdline.
+          ysdch_gs_result-tabix = sy-tabix.
+          APPEND ysdch_gs_result TO ysdch_gt_result.
+        ENDIF. "ysdch_gs_line-tdline CS pa_beg AND pa_beg IS NOT INITIAL AND ysdch_gs_line-tdformat <> '/*'.
+      ELSE.
+        IF ysdch_gs_line-tdline CS pa_lbg AND pa_lbg IS NOT INITIAL.
+          ysdch_gs_result-tdformat = ysdch_gs_line-tdformat.
+          ysdch_gs_result-tdline = ysdch_gs_line-tdline.
+          ysdch_gs_result-tabix = sy-tabix.
+          APPEND ysdch_gs_result TO ysdch_gt_result.
+        ENDIF. "ysdch_gs_line-tdline CS pa_beg AND pa_beg IS NOT INITIAL AND ysdch_gs_line-tdformat <> '/*'.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.                    " SEARCH_TXTID
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_RESULT_FOR_LONGTEXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM show_result_for_longtext .
+
+  WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' COLOR COL_NEGATIVE.
+  WRITE: / 'Suchbegriff:', pa_lbg COLOR COL_NEGATIVE.
+  WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' COLOR COL_NEGATIVE.
+  WRITE: / 'ID        :' , pa_id.
+  WRITE: / 'Sprache   :' , pa_spr.
+  WRITE: / 'Name      :' , pa_nam.
+  WRITE: / 'Objekt    :' , pa_obj.
+  WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+  LOOP AT ysdch_gt_result INTO ysdch_gs_result.
+    WRITE: / ' Zeile/Inhalt: ' COLOR COL_NORMAL ,ysdch_gs_result-tabix COLOR COL_KEY,
+              ysdch_gs_result-tdformat COLOR COL_POSITIVE,
+              ysdch_gs_result-tdline.
+  ENDLOOP.
+
+ENDFORM.                    " SHOW_RESULT_FOR_LONGTEXT
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_ALL_TXTID
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM show_all_txtid .
+
+  CALL FUNCTION 'READ_TEXT'
+    EXPORTING
+*   CLIENT                        = SY-MANDT
+      id                            = pa_id
+      language                      = pa_spr
+      name                          = pa_nam
+      object                        = pa_obj
+*   ARCHIVE_HANDLE                = 0
+*   LOCAL_CAT                     = ' '
+* IMPORTING
+*   HEADER                        =
+    TABLES
+      lines                         = ysdch_gt_lines
+   EXCEPTIONS
+     id                            = 1
+     language                      = 2
+     name                          = 3
+     not_found                     = 4
+     object                        = 5
+     reference_check               = 6
+     wrong_access_to_archive       = 7
+     error_message                 = 9
+     OTHERS                        = 8
+            .
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+  ELSE.
+
+    WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' COLOR COL_NEGATIVE.
+    WRITE: / text-500 COLOR COL_NEGATIVE.
+    WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' COLOR COL_NEGATIVE.
+    WRITE: / 'ID        :' , pa_id.
+    WRITE: / 'Sprache   :' , pa_spr.
+    WRITE: / 'Name      :' , pa_nam.
+    WRITE: / 'Objekt    :' , pa_obj.
+    WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+    LOOP AT ysdch_gt_lines INTO ysdch_gs_line.
+      WRITE: /  ysdch_gs_line-tdformat COLOR COL_POSITIVE,
+                ysdch_gs_line-tdline.
+    ENDLOOP.
+
+
+  ENDIF.
+
+ENDFORM.                    " SHOW_ALL_TXTID
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_LONGTEXTES_ON_SCREEN
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM show_longtextes_on_screen .
+
+  DATA: ysdch_lt_lines LIKE TABLE OF ysdch_gs_line.
+  DATA: ysdch_ls_line LIKE ysdch_gs_line.
+  DATA: lv_seperator TYPE c LENGTH 100.
+
+clear: ysdch_gt_lines,
+       ysdch_lt_lines.
+
+  CALL FUNCTION 'READ_TEXT'
+    EXPORTING
+*   CLIENT                        = SY-MANDT
+      id                            = pa_id
+      language                      = pa_spr
+      name                          = pa_nam
+      object                        = pa_obj
+*   ARCHIVE_HANDLE                = 0
+*   LOCAL_CAT                     = ' '
+* IMPORTING
+*   HEADER                        =
+    TABLES
+      lines                         = ysdch_gt_lines
+   EXCEPTIONS
+     id                            = 1
+     language                      = 2
+     name                          = 3
+     not_found                     = 4
+     object                        = 5
+     reference_check               = 6
+     wrong_access_to_archive       = 7
+     error_message                 = 9
+     OTHERS                        = 8
+            .
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+  ELSE.
+
+    CALL FUNCTION 'READ_TEXT'
+      EXPORTING
+*   CLIENT                        = SY-MANDT
+        id                            = pa_id2
+        language                      = pa_spr2
+        name                          = pa_nam2
+        object                        = pa_obj2
+*   ARCHIVE_HANDLE                = 0
+*   LOCAL_CAT                     = ' '
+* IMPORTING
+*   HEADER                        =
+      TABLES
+        lines                         = ysdch_lt_lines
+     EXCEPTIONS
+       id                            = 1
+       language                      = 2
+       name                          = 3
+       not_found                     = 4
+       object                        = 5
+       reference_check               = 6
+       wrong_access_to_archive       = 7
+       error_message                 = 9
+       OTHERS                        = 8
+              .
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+              WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+    ENDIF.
+
+    IF ysdch_gt_lines IS NOT INITIAL OR ysdch_lt_lines IS NOT INITIAL.
+
+      WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' COLOR COL_NEGATIVE.
+      WRITE: / text-500 COLOR COL_NEGATIVE.
+      WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~' COLOR COL_NEGATIVE.
+      WRITE: / 'Langtext1  ' , lv_seperator(63), ' | ' , 'Langtext2' .
+      WRITE: / 'ID        :' , pa_id, lv_seperator(58), ' | ' ,  'ID        :' , pa_id2.
+      WRITE: / 'Sprache   :' , pa_spr, lv_seperator(60), ' | ' , 'Sprache   :' , pa_spr2.
+      WRITE: / 'Name      :' , pa_nam(50), lv_seperator(12), ' | ' , 'Name      :' , pa_nam2.
+      WRITE: / 'Objekt    :' , pa_obj, lv_seperator(52), ' | ' , 'Objekt    :' , pa_obj2.
+      WRITE: / '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'.
+
+
+      DO.
+        CLEAR: ysdch_gs_line,
+               ysdch_ls_line.
+
+        READ TABLE ysdch_gt_lines INTO ysdch_gs_line INDEX sy-index.
+        READ TABLE ysdch_lt_lines INTO ysdch_ls_line INDEX sy-index.
+        IF ysdch_gs_line IS NOT INITIAL OR ysdch_ls_line IS NOT INITIAL.
+          IF ysdch_gs_line IS NOT INITIAL AND ysdch_ls_line IS NOT INITIAL.
+            IF ysdch_gs_line EQ ysdch_ls_line.
+              WRITE: /  ysdch_gs_line-tdformat COLOR COL_POSITIVE,
+                        ysdch_gs_line-tdline(72),
+                        ' | ',
+                        ysdch_ls_line-tdformat COLOR COL_POSITIVE,
+                        ysdch_ls_line-tdline(72).
+            ELSE.
+              WRITE: /  ysdch_gs_line-tdformat COLOR COL_POSITIVE,
+                   ysdch_gs_line-tdline(72) COLOR COL_TOTAL,
+                   ' | ',
+                   ysdch_ls_line-tdformat COLOR COL_POSITIVE,
+                   ysdch_ls_line-tdline(72) COLOR COL_TOTAL.
+            ENDIF.
+          ELSE.
+            WRITE: /  ysdch_gs_line-tdformat COLOR COL_POSITIVE,
+                  ysdch_gs_line-tdline(72),
+                  ' | ',
+                  ysdch_ls_line-tdformat COLOR COL_POSITIVE,
+                  ysdch_ls_line-tdline(72).
+
+          ENDIF.
+        ELSE.
+          EXIT.
+        ENDIF.
+
+      ENDDO.
+
+    ENDIF.
+  ENDIF.
+
+ENDFORM.                    " SHOW_LONGTEXTES_ON_SCREEN
