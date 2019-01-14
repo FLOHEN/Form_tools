@@ -1,0 +1,87 @@
+Parameter: C_PICTURE type XSTRING (Changing).
+
+I_HEIGHT type I (Importing)
+
+I_INPUT type string (Importing)
+
+I_OUTPUT type string (Importing)
+
+I_WIDTH type I (Importing)
+
+   DATA: lv_xstring       TYPE xstring.
+    DATA: lt_xstring       TYPE TABLE OF xstring.
+    DATA: lv_strlen        TYPE int4.
+    DATA: lt_filetab       TYPE solix_tab.
+    DATA: lv_output_length TYPE i.
+    DATA: lv_count         TYPE i.
+    DATA: ls_content_bin   TYPE sdokcntbin.
+    DATA: lv_len           TYPE i.
+    DATA: lv_type          TYPE w3conttype.
+
+    DATA: lc_image_converter TYPE REF TO   cl_igs_image_converter.
+
+    CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+      EXPORTING
+        buffer        = c_picture
+*       APPEND_TO_TABLE       = ' '
+      IMPORTING
+        output_length = lv_output_length
+      TABLES
+        binary_tab    = lt_filetab.
+
+    IF lc_image_converter IS INITIAL.
+      CREATE OBJECT lc_image_converter
+*      EXPORTING
+*       destination = 'IGS_RFC_DEST'
+        .
+
+    ENDIF.
+
+    lc_image_converter->input  = i_input.
+    lc_image_converter->output = i_output.
+    lc_image_converter->width  = i_width.
+    lc_image_converter->height = i_height.
+
+    lc_image_converter->set_image(
+        blob      = lt_filetab
+        blob_size = lv_strlen
+           ).
+
+    lc_image_converter->execute(
+       EXCEPTIONS
+         communication_error = 1
+         internal_error      = 2
+         external_error      = 3
+         OTHERS              = 4
+           ).
+    IF sy-subrc <> 0.
+*      Implement suitable error handling here
+    ENDIF.
+
+    lc_image_converter->get_image(
+       EXPORTING
+         index     = '1'
+       IMPORTING
+         blob      = lt_filetab
+         blob_size = lv_len
+         blob_type = lv_type
+           ).
+
+    DESCRIBE TABLE lt_filetab LINES lv_count.
+    READ TABLE lt_filetab INTO ls_content_bin INDEX lv_count.
+    lv_len = xstrlen( ls_content_bin-line ).
+    lv_len = lv_len + ( lv_count - 1 ) * 1022.
+    CALL FUNCTION 'SCMS_BINARY_TO_XSTRING'
+      EXPORTING
+        input_length = lv_len
+*       FIRST_LINE   = 0
+*       LAST_LINE    = 0
+      IMPORTING
+        buffer       = lv_xstring
+      TABLES
+        binary_tab   = lt_filetab
+      EXCEPTIONS
+        failed       = 1
+        OTHERS       = 2.
+
+    MOVE lv_xstring TO c_picture.
