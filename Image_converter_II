@@ -1,0 +1,106 @@
+CALL FUNCTION 'SCMS_BINARY_TO_XSTRING'
+                      EXPORTING
+                        input_length = lv_length
+                      IMPORTING
+                        buffer       = lv_xstring
+                      TABLES
+                        binary_tab   = lt_bin_content
+                      EXCEPTIONS
+                        failed       = 1
+                        OTHERS       = 2.
+
+ 
+
+lv_xstring = zcl_static_helper=>resize_img_4_pdf_forms( iv_image = lv_xstring
+                                                                                               iv_max_breite = 18
+                                                                                               iv_max_height = 24 ).
+
+METHOD resize_img_4_pdf_forms.
+
+    DATA:
+* Variablen:
+      lv_img_proc_handle TYPE i,
+      lv_xres            TYPE i,
+      lv_yres            TYPE i,
+      lv_xdpi            TYPE i,
+      lv_ydpi            TYPE i,
+      lv_breite          TYPE i,
+      lv_height          TYPE i,
+      lv_faktor          TYPE i,
+* OO:
+      lo_img_proc        TYPE REF TO cl_fxs_image_processor,
+      lcx_root           TYPE REF TO cx_root.
+
+**********************************************************************
+* Resizing
+**********************************************************************
+* GUI-Helfer und Bildprozessor instanziieren
+    CLEAR: lv_img_proc_handle, lo_img_proc, lv_xres, lv_yres..
+    lo_img_proc = NEW cl_fxs_image_processor( ).
+* XSTRING dem Processor hinzufügen
+    lv_img_proc_handle = lo_img_proc->add_image( iv_image ).
+
+    TRY.
+        lo_img_proc->get_info(
+          EXPORTING iv_handle = lv_img_proc_handle
+          IMPORTING ev_xres   = lv_xres
+                    ev_yres   = lv_yres
+                    ev_xdpi   = lv_xdpi
+                    ev_ydpi   = lv_ydpi ).
+
+* Breite berechnen
+        CLEAR: lv_breite, lv_height, lv_faktor.
+        lv_breite = ( lv_xres / lv_xdpi ) * '2.54'.
+        lv_height = ( lv_yres / lv_ydpi ) * '2.54'.
+
+        IF lv_breite > iv_max_breite.
+          lv_faktor = ( 100 / iv_max_breite ) * lv_breite.
+
+          IF lv_xdpi = lv_ydpi.
+            lv_xres = ( lv_xres * 100 ) / lv_faktor .
+            lv_yres = ( lv_yres * 100 ) / lv_faktor .
+          ELSE.
+* Für den Fall das DPI auf X und Y unterschiedlich sind muss man den Faktor für lv_yres neu berechnen... der Fall ist noch nicht getestet
+            lv_xres = ( lv_xres * 100 ) / lv_faktor .
+            lv_faktor = ( lv_faktor / lv_xdpi ) * lv_ydpi.
+            lv_yres = ( lv_yres * 100 ) / lv_faktor .
+          ENDIF.
+        ENDIF.
+
+**********************************************************************
+* zusätzlich noch die Höhe mit einschließen
+**********************************************************************
+        IF iv_max_height IS SUPPLIED.
+          IF lv_height > iv_max_height.
+* Dann war vor dem oberen Resize die Höhe größer als die maximal mitgegebene --> wenn nicht wäre damit schon zu ende
+* also nochmal neu die Höhe berechnen
+            lv_height = ( lv_yres / lv_ydpi ) * '2.54'.
+            IF lv_height > iv_max_height.
+              "Höhe passt nicht ... muss jetzt nochmal berechnet werden
+              lv_faktor = ( 100 / iv_max_height ) * lv_height.
+              IF lv_xdpi = lv_ydpi.
+                lv_xres = ( lv_xres * 100 ) / lv_faktor.
+                lv_yres = ( lv_yres * 100 ) / lv_faktor.
+              ELSE.
+*     Für den Fall das DPI auf X und Y unterschiedlich sind muss man den Faktor für lv_yres neu berechnen... der Fall ist noch nicht getestet
+                lv_yres = ( lv_yres * 100 ) / lv_faktor .
+                lv_faktor = ( lv_faktor / lv_ydpi ) * lv_xdpi.
+                lv_xres = ( lv_xres * 100 ) / lv_faktor.
+              ENDIF.
+            ELSE.
+              " Höhe passt jetzt auch ... also nix ändern und weiter
+            ENDIF.
+          ENDIF.
+        ENDIF.
+
+* Bild auf 100x100px skalieren, bzw. den umgerechneten Wert
+        lo_img_proc->resize(
+            iv_handle = lv_img_proc_handle
+            iv_xres   = lv_xres "'100'
+            iv_yres   = lv_yres ). " '100' ).
+      CATCH cx_sy_range_out_of_bounds .
+    ENDTRY.
+    " Skaliertes Bild zurück in XSTRING laden
+    rv_image = lo_img_proc->get_image( lv_img_proc_handle ).
+
+  ENDMETHOD.
